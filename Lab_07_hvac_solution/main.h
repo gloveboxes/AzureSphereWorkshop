@@ -27,7 +27,7 @@
 static DX_DIRECT_METHOD_RESPONSE_CODE hvac_off_handler(JSON_Value *json, DX_DIRECT_METHOD_BINDING *directMethodBinding, char **responseMsg);
 static DX_DIRECT_METHOD_RESPONSE_CODE hvac_on_handler(JSON_Value *json, DX_DIRECT_METHOD_BINDING *directMethodBinding, char **responseMsg);
 static DX_DIRECT_METHOD_RESPONSE_CODE restart_hvac_handler(JSON_Value *json, DX_DIRECT_METHOD_BINDING *directMethodBinding, char **responseMsg);
-static void dt_set_hvac_temperature_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding);
+static void dt_set_target_temperature_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding);
 static void dt_set_panel_message_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding);
 static void dt_set_publish_rate_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding);
 static void intercore_environment_receive_msg_handler(void *data_block, ssize_t message_length);
@@ -92,7 +92,7 @@ static DX_DEVICE_TWIN_BINDING dt_hvac_operating_mode = {.propertyName = "Operati
 static DX_DEVICE_TWIN_BINDING dt_hvac_panel_message = {.propertyName = "PanelMessage", .twinType = DX_DEVICE_TWIN_STRING, .handler = dt_set_panel_message_handler};
 static DX_DEVICE_TWIN_BINDING dt_hvac_publish_rate = {.propertyName = "PublishRate", .twinType = DX_DEVICE_TWIN_INT, .handler = dt_set_publish_rate_handler};
 static DX_DEVICE_TWIN_BINDING dt_hvac_sw_version = {.propertyName = "SoftwareVersion", .twinType = DX_DEVICE_TWIN_STRING};
-static DX_DEVICE_TWIN_BINDING dt_hvac_target_temperature = {.propertyName = "TargetTemperature", .twinType = DX_DEVICE_TWIN_INT, .handler = dt_set_hvac_temperature_handler};
+static DX_DEVICE_TWIN_BINDING dt_hvac_target_temperature = {.propertyName = "TargetTemperature", .twinType = DX_DEVICE_TWIN_INT, .handler = dt_set_target_temperature_handler};
 static DX_DEVICE_TWIN_BINDING dt_utc_connected = {.propertyName = "ConnectedUtc", .twinType = DX_DEVICE_TWIN_STRING};
 static DX_DEVICE_TWIN_BINDING dt_utc_startup = {.propertyName = "StartupUtc", .twinType = DX_DEVICE_TWIN_STRING};
 

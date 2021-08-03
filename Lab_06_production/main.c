@@ -121,7 +121,7 @@ static void publish_telemetry_handler(EventLoopTimer *eventLoopTimer)
     }
 
     // Validate sensor data to check within expected range
-    if (!IN_RANGE(env.latest.temperature, -20, 50) && IN_RANGE(env.latest.pressure, 800, 1200) && IN_RANGE(env.latest.humidity, 0, 100)) {
+    if (!IN_RANGE(env.latest.temperature, -20, 50) || !IN_RANGE(env.latest.pressure, 800, 1200) || !IN_RANGE(env.latest.humidity, 0, 100)) {
         // sensor data is outside of normal operating range so report the fault
         report_faulty_sensor(&env);
     } else {
@@ -230,7 +230,7 @@ static void dt_set_panel_message_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBindi
     }
 }
 
-static void dt_set_hvac_temperature_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding)
+static void dt_set_target_temperature_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding)
 {
     int _target_temperature = *(int *)deviceTwinBinding->propertyValue;
     if (IN_RANGE(_target_temperature, 0, 50)) {

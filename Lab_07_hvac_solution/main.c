@@ -38,21 +38,20 @@
 #define ENABLE_RT_ENVIROMON 1
 #define ENABLE_FAULTY_SENSOR 0
 
-/****************************************************************************************
- * Implementation
- ****************************************************************************************/
+ /****************************************************************************************
+  * Implementation
+  ****************************************************************************************/
 
-static void report_faulty_sensor(ENVIRONMENT *env)
-{
+static void report_faulty_sensor(ENVIRONMENT* env) {
     // Report faulty sesnsor - telemetry out of range
     // clang-format off
-        if (dx_jsonSerialize(msgBuffer, sizeof(msgBuffer), 5, 
-            DX_JSON_STRING, "Sensor", "Environment", 
-            DX_JSON_STRING, "ErrorMessage", "Telemetry out of range",
-            DX_JSON_INT, "Temperature", env->latest.temperature, 
-            DX_JSON_INT, "Pressure", env->latest.pressure,
-            DX_JSON_INT, "Humidity", env->latest.humidity))
-    // clang-format on
+    if (dx_jsonSerialize(msgBuffer, sizeof(msgBuffer), 5,
+        DX_JSON_STRING, "Sensor", "Environment",
+        DX_JSON_STRING, "ErrorMessage", "Telemetry out of range",
+        DX_JSON_INT, "Temperature", env->latest.temperature,
+        DX_JSON_INT, "Pressure", env->latest.pressure,
+        DX_JSON_INT, "Humidity", env->latest.humidity))
+        // clang-format on
     {
         Log_Debug("%s\n", msgBuffer);
 
@@ -71,8 +70,7 @@ static void report_faulty_sensor(ENVIRONMENT *env)
 /// </summary>
 /// <param name="temperature"></param>
 /// <param name="pressure"></param>
-static void update_device_twins(ENVIRONMENT *env)
-{
+static void update_device_twins(ENVIRONMENT* env) {
     static int64_t previous_milliseconds = 0ll;
 
     int64_t now = dx_getNowMilliseconds();
@@ -107,8 +105,7 @@ static void update_device_twins(ENVIRONMENT *env)
 }
 
 // Validate sensor readings and publish HVAC telemetry
-static void publish_telemetry_handler(EventLoopTimer *eventLoopTimer)
-{
+static void publish_telemetry_handler(EventLoopTimer* eventLoopTimer) {
     static int msgId = 0;
 
     if (ConsumeEventLoopTimerEvent(eventLoopTimer) != 0) {
@@ -121,20 +118,20 @@ static void publish_telemetry_handler(EventLoopTimer *eventLoopTimer)
     }
 
     // Validate sensor data to check within expected range
-    if (!IN_RANGE(env.latest.temperature, -20, 50) && IN_RANGE(env.latest.pressure, 800, 1200) && IN_RANGE(env.latest.humidity, 0, 100)) {
+    if (!IN_RANGE(env.latest.temperature, -20, 50) || !IN_RANGE(env.latest.pressure, 800, 1200) || !IN_RANGE(env.latest.humidity, 0, 100)) {
         // sensor data is outside of normal operating range so report the fault
         report_faulty_sensor(&env);
     } else {
         // Serialize telemetry as JSON
         // clang-format off
-        if (dx_jsonSerialize(msgBuffer, sizeof(msgBuffer), 6,                             
-            DX_JSON_INT, "MsgId", msgId++, 
-            DX_JSON_INT, "Temperature", env.latest.temperature, 
+        if (dx_jsonSerialize(msgBuffer, sizeof(msgBuffer), 6,
+            DX_JSON_INT, "MsgId", msgId++,
+            DX_JSON_INT, "Temperature", env.latest.temperature,
             DX_JSON_INT, "Pressure", env.latest.pressure,
             DX_JSON_INT, "Humidity", env.latest.humidity,
             DX_JSON_INT, "PeakUserMemoryKiB", (int)Applications_GetPeakUserModeMemoryUsageInKB(),
             DX_JSON_INT, "TotalMemoryKiB", (int)Applications_GetTotalMemoryUsageInKB()))
-        // clang-format on
+            // clang-format on
         {
             Log_Debug("%s\n", msgBuffer);
 
@@ -154,28 +151,27 @@ static void read_telemetry_handler(EventLoopTimer* eventLoopTimer) {
         return;
     }
 
-    #if (ENABLE_RT_ENVIROMON == 1)
+#if (ENABLE_RT_ENVIROMON == 1)
 
     intercore_block.cmd = IC_READ_SENSOR;
     dx_intercorePublish(&intercore_environment_ctx, &intercore_block, sizeof(intercore_block));
 
-    #else
+#else
 
     env.latest.temperature = 20 + (rand() % 40);
     env.latest.pressure = 1100;
     env.latest.humidity = 20 + (rand() % 60);
     env.updated = true;
 
-    #endif
+#endif
 
 }
 
 /// <summary>
 /// Callback handler for Inter-Core Messaging
 /// </summary>
-static void intercore_environment_receive_msg_handler(void *data_block, ssize_t message_length)
-{
-    INTERCORE_BLOCK *ic_data = (INTERCORE_BLOCK *)data_block;
+static void intercore_environment_receive_msg_handler(void* data_block, ssize_t message_length) {
+    INTERCORE_BLOCK* ic_data = (INTERCORE_BLOCK*)data_block;
 
     switch (ic_data->cmd) {
     case IC_READ_SENSOR:
@@ -185,9 +181,9 @@ static void intercore_environment_receive_msg_handler(void *data_block, ssize_t 
         env.latest_operating_mode = ic_data->operating_mode;
         env.updated = true;
 
-        #if (ENABLE_FAULTY_SENSOR == 1)
+#if (ENABLE_FAULTY_SENSOR == 1)
         env.latest.temperature += (rand() % 40);
-        #endif
+#endif
         break;
     default:
         break;
@@ -198,9 +194,8 @@ static void intercore_environment_receive_msg_handler(void *data_block, ssize_t 
 /// Device twin to set the rate the HVAC will publish telemetry
 /// </summary>
 /// <param name="deviceTwinBinding"></param>
-static void dt_set_publish_rate_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding)
-{
-    int sample_rate_seconds = *(int *)deviceTwinBinding->propertyValue;
+static void dt_set_publish_rate_handler(DX_DEVICE_TWIN_BINDING* deviceTwinBinding) {
+    int sample_rate_seconds = *(int*)deviceTwinBinding->propertyValue;
 
     // validate data is sensible range before applying
     if (IN_RANGE(sample_rate_seconds, 0, 120)) {
@@ -215,9 +210,8 @@ static void dt_set_publish_rate_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBindin
 // A reference to the string is passed that is available only for the lifetime of the callback.
 // You must copy to a global char array to preserve the string outside of the callback.
 // As strings are arbitrary length on a constrained device you control memory allocation.
-static void dt_set_panel_message_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding)
-{
-    char *panel_message = (char *)deviceTwinBinding->propertyValue;
+static void dt_set_panel_message_handler(DX_DEVICE_TWIN_BINDING* deviceTwinBinding) {
+    char* panel_message = (char*)deviceTwinBinding->propertyValue;
 
     // Is the message size less than the destination buffer size and printable characters
     if (strlen(panel_message) < sizeof(display_panel_message) && dx_isStringPrintable(panel_message)) {
@@ -230,9 +224,8 @@ static void dt_set_panel_message_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBindi
     }
 }
 
-static void dt_set_hvac_temperature_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding)
-{
-    int _target_temperature = *(int *)deviceTwinBinding->propertyValue;
+static void dt_set_target_temperature_handler(DX_DEVICE_TWIN_BINDING* deviceTwinBinding) {
+    int _target_temperature = *(int*)deviceTwinBinding->propertyValue;
     if (IN_RANGE(_target_temperature, 0, 50)) {
         target_temperature = _target_temperature;
 
@@ -247,15 +240,13 @@ static void dt_set_hvac_temperature_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBi
 }
 
 // Direct method name = HvacOn
-static DX_DIRECT_METHOD_RESPONSE_CODE hvac_on_handler(JSON_Value *json, DX_DIRECT_METHOD_BINDING *directMethodBinding, char **responseMsg)
-{
+static DX_DIRECT_METHOD_RESPONSE_CODE hvac_on_handler(JSON_Value* json, DX_DIRECT_METHOD_BINDING* directMethodBinding, char** responseMsg) {
     dx_gpioOn(&gpio_operating_led);
     return DX_METHOD_SUCCEEDED;
 }
 
 // Direct method name =HvacOff
-static DX_DIRECT_METHOD_RESPONSE_CODE hvac_off_handler(JSON_Value *json, DX_DIRECT_METHOD_BINDING *directMethodBinding, char **responseMsg)
-{
+static DX_DIRECT_METHOD_RESPONSE_CODE hvac_off_handler(JSON_Value* json, DX_DIRECT_METHOD_BINDING* directMethodBinding, char** responseMsg) {
     dx_gpioOff(&gpio_operating_led);
     return DX_METHOD_SUCCEEDED;
 }
@@ -263,14 +254,12 @@ static DX_DIRECT_METHOD_RESPONSE_CODE hvac_off_handler(JSON_Value *json, DX_DIRE
 /// <summary>
 /// Start Reboot Device Direct Method 'RebootDevice' {"Seconds":5}
 /// </summary>
-static DX_DIRECT_METHOD_RESPONSE_CODE restart_hvac_handler(JSON_Value *json, DX_DIRECT_METHOD_BINDING *directMethodBinding, char **responseMsg)
-{
+static DX_DIRECT_METHOD_RESPONSE_CODE restart_hvac_handler(JSON_Value* json, DX_DIRECT_METHOD_BINDING* directMethodBinding, char** responseMsg) {
     PowerManagement_ForceSystemReboot();
     return DX_METHOD_SUCCEEDED;
 }
 
-static void report_startup(bool connected)
-{
+static void report_startup(bool connected) {
     if (connected) {
         // This is the first connect so update device start time UTC and software version
         dx_deviceTwinReportValue(&dt_utc_startup, dx_getCurrentUtc(msgBuffer, sizeof(msgBuffer)));
@@ -284,8 +273,7 @@ static void report_startup(bool connected)
     }
 }
 
-static void ConnectionStatus(bool connected)
-{
+static void ConnectionStatus(bool connected) {
     if (connected) {
         dx_deviceTwinReportValue(&dt_utc_connected, dx_getCurrentUtc(msgBuffer, sizeof(msgBuffer)));
     }
@@ -297,11 +285,10 @@ static void ConnectionStatus(bool connected)
 /// </summary>
 /// <param name="max_deferral_time_in_minutes">The maximum number of minutes you can defer</param>
 /// <returns>Return 0 to start update, return greater than zero to defer</returns>
-static uint32_t DeferredUpdateCalculate(uint32_t max_deferral_time_in_minutes, SysEvent_UpdateType type, SysEvent_Status status, const char *typeDescription,
-                                        const char *statusDescription)
-{
+static uint32_t DeferredUpdateCalculate(uint32_t max_deferral_time_in_minutes, SysEvent_UpdateType type, SysEvent_Status status, const char* typeDescription,
+    const char* statusDescription) {
     time_t now = time(NULL);
-    struct tm *t = gmtime(&now);
+    struct tm* t = gmtime(&now);
     char utc[40];
 
     // UTC +10 is good for Australia :)
@@ -313,7 +300,7 @@ static uint32_t DeferredUpdateCalculate(uint32_t max_deferral_time_in_minutes, S
 
     // Update defer requested device twin
     snprintf(msgBuffer, sizeof(msgBuffer), "Utc: %s, Type: %s, Status: %s, Max defer minutes: %i, Requested minutes: %i", dx_getCurrentUtc(utc, sizeof(utc)),
-             typeDescription, statusDescription, max_deferral_time_in_minutes, requested_minutes);
+        typeDescription, statusDescription, max_deferral_time_in_minutes, requested_minutes);
 
     dx_deviceTwinReportValue(&dt_defer_requested, msgBuffer);
 
@@ -323,8 +310,7 @@ static uint32_t DeferredUpdateCalculate(uint32_t max_deferral_time_in_minutes, S
 /// <summary>
 ///  Initialize peripherals, device twins, direct methods, timer_binding_sets.
 /// </summary>
-static void InitPeripheralsAndHandlers(void)
-{
+static void InitPeripheralsAndHandlers(void) {
     dx_Log_Debug_Init(Log_Debug_Time_buffer, sizeof(Log_Debug_Time_buffer));
     dx_azureConnect(&dx_config, NETWORK_INTERFACE, IOT_PLUG_AND_PLAY_MODEL_ID);
     dx_gpioSetOpen(gpio_binding_sets, NELEMS(gpio_binding_sets));
@@ -346,8 +332,7 @@ static void InitPeripheralsAndHandlers(void)
 /// <summary>
 ///     Close peripherals and handlers.
 /// </summary>
-static void ClosePeripheralsAndHandlers(void)
-{
+static void ClosePeripheralsAndHandlers(void) {
     dx_timerSetStop(timer_binding_sets, NELEMS(timer_binding_sets));
     dx_deviceTwinUnsubscribe();
     dx_directMethodUnsubscribe();
@@ -355,8 +340,7 @@ static void ClosePeripheralsAndHandlers(void)
     dx_timerEventLoopStop();
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
     dx_registerTerminationHandler();
 
     if (!dx_configParseCmdLineArguments(argc, argv, &dx_config)) {

@@ -35,8 +35,6 @@
 #include "main.h"
 #include "app_exit_codes.h"
 
-#define ENABLE_RT_ENVIROMON 1
-#define ENABLE_FAULTY_SENSOR 0
 
 /****************************************************************************************
  * Implementation
@@ -121,7 +119,7 @@ static void publish_telemetry_handler(EventLoopTimer *eventLoopTimer)
     }
 
     // Validate sensor data to check within expected range
-    if (!IN_RANGE(env.latest.temperature, -20, 50) && IN_RANGE(env.latest.pressure, 800, 1200) && IN_RANGE(env.latest.humidity, 0, 100)) {
+    if (!IN_RANGE(env.latest.temperature, -20, 50) || !IN_RANGE(env.latest.pressure, 800, 1200) || !IN_RANGE(env.latest.humidity, 0, 100)) {
         // sensor data is outside of normal operating range so report the fault
         report_faulty_sensor(&env);
     } else {
@@ -154,45 +152,12 @@ static void read_telemetry_handler(EventLoopTimer* eventLoopTimer) {
         return;
     }
 
-    #if (ENABLE_RT_ENVIROMON == 1)
-
-    intercore_block.cmd = IC_READ_SENSOR;
-    dx_intercorePublish(&intercore_environment_ctx, &intercore_block, sizeof(intercore_block));
-
-    #else
-
     env.latest.temperature = 20 + (rand() % 40);
     env.latest.pressure = 1100;
     env.latest.humidity = 20 + (rand() % 60);
     env.updated = true;
-
-    #endif
-
 }
 
-/// <summary>
-/// Callback handler for Inter-Core Messaging
-/// </summary>
-static void intercore_environment_receive_msg_handler(void *data_block, ssize_t message_length)
-{
-    INTERCORE_BLOCK *ic_data = (INTERCORE_BLOCK *)data_block;
-
-    switch (ic_data->cmd) {
-    case IC_READ_SENSOR:
-        env.latest.temperature = ic_data->temperature;
-        env.latest.pressure = ic_data->pressure;
-        env.latest.humidity = ic_data->humidity;
-        env.latest_operating_mode = ic_data->operating_mode;
-        env.updated = true;
-
-        #if (ENABLE_FAULTY_SENSOR == 1)
-        env.latest.temperature += (rand() % 40);
-        #endif
-        break;
-    default:
-        break;
-    }
-}
 
 /// <summary>
 /// Device twin to set the rate the HVAC will publish telemetry
@@ -230,16 +195,11 @@ static void dt_set_panel_message_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBindi
     }
 }
 
-static void dt_set_hvac_temperature_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding)
+static void dt_set_target_temperature_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding)
 {
     int _target_temperature = *(int *)deviceTwinBinding->propertyValue;
     if (IN_RANGE(_target_temperature, 0, 50)) {
         target_temperature = _target_temperature;
-
-        intercore_block.cmd = IC_TARGET_TEMPERATURE;
-        intercore_block.temperature = target_temperature;
-        dx_intercorePublish(&intercore_environment_ctx, &intercore_block, sizeof(intercore_block));
-
         dx_deviceTwinAckDesiredValue(deviceTwinBinding, deviceTwinBinding->propertyValue, DX_DEVICE_TWIN_RESPONSE_COMPLETED);
     } else {
         dx_deviceTwinAckDesiredValue(deviceTwinBinding, deviceTwinBinding->propertyValue, DX_DEVICE_TWIN_RESPONSE_ERROR);
@@ -260,64 +220,12 @@ static DX_DIRECT_METHOD_RESPONSE_CODE hvac_off_handler(JSON_Value *json, DX_DIRE
     return DX_METHOD_SUCCEEDED;
 }
 
-/// <summary>
-/// Start Reboot Device Direct Method 'RebootDevice' {"Seconds":5}
-/// </summary>
-static DX_DIRECT_METHOD_RESPONSE_CODE restart_hvac_handler(JSON_Value *json, DX_DIRECT_METHOD_BINDING *directMethodBinding, char **responseMsg)
-{
-    PowerManagement_ForceSystemReboot();
-    return DX_METHOD_SUCCEEDED;
-}
-
-static void report_startup(bool connected)
-{
-    if (connected) {
-        // This is the first connect so update device start time UTC and software version
-        dx_deviceTwinReportValue(&dt_utc_startup, dx_getCurrentUtc(msgBuffer, sizeof(msgBuffer)));
-
-        // Report software version
-        snprintf(msgBuffer, sizeof(msgBuffer), "Sample version: %s, DevX version: %s", SAMPLE_VERSION_NUMBER, AZURE_SPHERE_DEVX_VERSION);
-        dx_deviceTwinReportValue(&dt_hvac_sw_version, msgBuffer);
-
-        // now unregister this callback as we've reported startup time and sw version
-        dx_azureUnregisterConnectionChangedNotification(report_startup);
-    }
-}
-
 static void ConnectionStatus(bool connected)
 {
     if (connected) {
         dx_deviceTwinReportValue(&dt_utc_connected, dx_getCurrentUtc(msgBuffer, sizeof(msgBuffer)));
     }
     dx_gpioStateSet(&gpio_network_led, connected);
-}
-
-/// <summary>
-/// Algorithm to determine if a deferred update can proceed
-/// </summary>
-/// <param name="max_deferral_time_in_minutes">The maximum number of minutes you can defer</param>
-/// <returns>Return 0 to start update, return greater than zero to defer</returns>
-static uint32_t DeferredUpdateCalculate(uint32_t max_deferral_time_in_minutes, SysEvent_UpdateType type, SysEvent_Status status, const char *typeDescription,
-                                        const char *statusDescription)
-{
-    time_t now = time(NULL);
-    struct tm *t = gmtime(&now);
-    char utc[40];
-
-    // UTC +10 is good for Australia :)
-    t->tm_hour += 10;
-    t->tm_hour = t->tm_hour % 24;
-
-    // If local time between 1am and 5am defer for zero minutes else defer for 15 minutes
-    uint32_t requested_minutes = IN_RANGE(t->tm_hour, 1, 5) ? 0 : 10;
-
-    // Update defer requested device twin
-    snprintf(msgBuffer, sizeof(msgBuffer), "Utc: %s, Type: %s, Status: %s, Max defer minutes: %i, Requested minutes: %i", dx_getCurrentUtc(utc, sizeof(utc)),
-             typeDescription, statusDescription, max_deferral_time_in_minutes, requested_minutes);
-
-    dx_deviceTwinReportValue(&dt_defer_requested, msgBuffer);
-
-    return requested_minutes;
 }
 
 /// <summary>
@@ -332,11 +240,6 @@ static void InitPeripheralsAndHandlers(void)
     dx_deviceTwinSubscribe(device_twin_bindings, NELEMS(device_twin_bindings));
     dx_directMethodSubscribe(direct_method_binding_sets, NELEMS(direct_method_binding_sets));
 
-    dx_intercoreConnect(&intercore_environment_ctx);
-
-    dx_deferredUpdateRegistration(DeferredUpdateCalculate, NULL);
-
-    dx_azureRegisterConnectionChangedNotification(report_startup);
     dx_azureRegisterConnectionChangedNotification(ConnectionStatus);
 
     // initialize previous environment sensor variables
