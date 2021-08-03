@@ -228,6 +228,8 @@ static void ConnectionStatus(bool connected)
     dx_gpioStateSet(&gpio_network_led, connected);
 }
 
+
+
 /// <summary>
 ///  Initialize peripherals, device twins, direct methods, timer_binding_sets.
 /// </summary>

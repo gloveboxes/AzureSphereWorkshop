@@ -36,7 +36,7 @@
 #include "app_exit_codes.h"
 
 #define ENABLE_RT_ENVIROMON 1
-#define ENABLE_FAULTY_SENSOR 0
+#define ENABLE_FAULTY_SENSOR 1
 
 /****************************************************************************************
  * Implementation
@@ -148,51 +148,44 @@ static void publish_telemetry_handler(EventLoopTimer *eventLoopTimer)
     }
 }
 
-static void read_telemetry_handler(EventLoopTimer* eventLoopTimer) {
+static void read_telemetry_handler(EventLoopTimer *eventLoopTimer)
+{
     if (ConsumeEventLoopTimerEvent(eventLoopTimer) != 0) {
         dx_terminate(DX_ExitCode_ConsumeEventLoopTimeEvent);
         return;
     }
 
-    #if (ENABLE_RT_ENVIROMON == 1)
+#if (ENABLE_RT_ENVIROMON == 1)
 
     intercore_block.cmd = IC_READ_SENSOR;
     dx_intercorePublish(&intercore_environment_ctx, &intercore_block, sizeof(intercore_block));
 
-    #else
+#else
 
     env.latest.temperature = 20 + (rand() % 40);
     env.latest.pressure = 1100;
     env.latest.humidity = 20 + (rand() % 60);
     env.updated = true;
 
-    #endif
-
+#endif
 }
 
-/// <summary>
-/// Callback handler for Inter-Core Messaging
-/// </summary>
-static void intercore_environment_receive_msg_handler(void *data_block, ssize_t message_length)
+static void ConnectionStatus(bool connected)
 {
-    INTERCORE_BLOCK *ic_data = (INTERCORE_BLOCK *)data_block;
-
-    switch (ic_data->cmd) {
-    case IC_READ_SENSOR:
-        env.latest.temperature = ic_data->temperature;
-        env.latest.pressure = ic_data->pressure;
-        env.latest.humidity = ic_data->humidity;
-        env.latest_operating_mode = ic_data->operating_mode;
-        env.updated = true;
-
-        #if (ENABLE_FAULTY_SENSOR == 1)
-        env.latest.temperature += (rand() % 40);
-        #endif
-        break;
-    default:
-        break;
+    if (connected) {
+        dx_deviceTwinReportValue(&dt_utc_connected, dx_getCurrentUtc(msgBuffer, sizeof(msgBuffer)));
     }
+    dx_gpioStateSet(&gpio_network_led, connected);
 }
+
+
+/***********************************************************************************************************
+ * REMOTE OPERATIONS
+ * 
+ * Control publish rate
+ * Set HVAC panel message
+ * Turn HVAC on and off
+ **********************************************************************************************************/
 
 /// <summary>
 /// Device twin to set the rate the HVAC will publish telemetry
@@ -260,6 +253,46 @@ static DX_DIRECT_METHOD_RESPONSE_CODE hvac_off_handler(JSON_Value *json, DX_DIRE
     return DX_METHOD_SUCCEEDED;
 }
 
+
+/***********************************************************************************************************
+ * Integrate real-time core sensor
+ **********************************************************************************************************/
+
+/// <summary>
+/// Callback handler for Inter-Core Messaging
+/// </summary>
+static void intercore_environment_receive_msg_handler(void *data_block, ssize_t message_length)
+{
+    INTERCORE_BLOCK *ic_data = (INTERCORE_BLOCK *)data_block;
+
+    switch (ic_data->cmd) {
+    case IC_READ_SENSOR:
+        env.latest.temperature = ic_data->temperature;
+        env.latest.pressure = ic_data->pressure;
+        env.latest.humidity = ic_data->humidity;
+        env.latest_operating_mode = ic_data->operating_mode;
+        env.updated = true;
+
+#if (ENABLE_FAULTY_SENSOR == 1)
+        env.latest.temperature += (rand() % 40);
+#endif
+        break;
+    default:
+        break;
+    }
+}
+
+
+/***********************************************************************************************************
+ * PRODUCTION
+ * 
+ * Add startup reporting
+ * Add application level watchdox
+ * Add deferred update support
+ * Add application level watchdox
+ * 
+ **********************************************************************************************************/
+
 /// <summary>
 /// Start Reboot Device Direct Method 'RebootDevice' {"Seconds":5}
 /// </summary>
@@ -268,6 +301,11 @@ static DX_DIRECT_METHOD_RESPONSE_CODE restart_hvac_handler(JSON_Value *json, DX_
     PowerManagement_ForceSystemReboot();
     return DX_METHOD_SUCCEEDED;
 }
+
+
+/***********************************************************************************************************
+ * Add startup reporting
+ **********************************************************************************************************/
 
 static void report_startup(bool connected)
 {
@@ -284,13 +322,10 @@ static void report_startup(bool connected)
     }
 }
 
-static void ConnectionStatus(bool connected)
-{
-    if (connected) {
-        dx_deviceTwinReportValue(&dt_utc_connected, dx_getCurrentUtc(msgBuffer, sizeof(msgBuffer)));
-    }
-    dx_gpioStateSet(&gpio_network_led, connected);
-}
+
+/***********************************************************************************************************
+ * Add deferred update support
+ **********************************************************************************************************/
 
 /// <summary>
 /// Algorithm to determine if a deferred update can proceed
@@ -320,6 +355,42 @@ static uint32_t DeferredUpdateCalculate(uint32_t max_deferral_time_in_minutes, S
     return requested_minutes;
 }
 
+
+/************************************************************************************************************
+ * Add application level watchdox
+ ***********************************************************************************************************/
+
+/// <summary>
+/// This timer extends the app level lease watchdog timer
+/// </summary>
+/// <param name="eventLoopTimer"></param>
+static void watchdog_handler(EventLoopTimer *eventLoopTimer)
+{
+    if (ConsumeEventLoopTimerEvent(eventLoopTimer) != 0) {
+        dx_terminate(DX_ExitCode_ConsumeEventLoopTimeEvent);
+        return;
+    }
+    timer_settime(watchdogTimer, 0, &watchdogInterval, NULL);
+}
+
+/// <summary>
+/// Set up watchdog timer - the lease is extended via the Watchdog_handler function
+/// </summary>
+/// <param name=""></param>
+void start_watchdog(void)
+{
+    struct sigevent alarmEvent;
+    alarmEvent.sigev_notify = SIGEV_SIGNAL;
+    alarmEvent.sigev_signo = SIGALRM;
+    alarmEvent.sigev_value.sival_ptr = &watchdogTimer;
+
+    if (timer_create(CLOCK_MONOTONIC, &alarmEvent, &watchdogTimer) == 0) {
+        if (timer_settime(watchdogTimer, 0, &watchdogInterval, NULL) == -1) {
+            Log_Debug("Issue setting watchdog timer. %s %d\n", strerror(errno), errno);
+        }
+    }
+}
+
 /// <summary>
 ///  Initialize peripherals, device twins, direct methods, timer_binding_sets.
 /// </summary>
@@ -341,6 +412,9 @@ static void InitPeripheralsAndHandlers(void)
 
     // initialize previous environment sensor variables
     env.previous.temperature = env.previous.pressure = env.previous.humidity = INT32_MAX;
+
+    // Uncomment for production
+     start_watchdog();
 }
 
 /// <summary>

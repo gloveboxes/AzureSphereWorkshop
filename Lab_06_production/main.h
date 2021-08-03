@@ -27,12 +27,13 @@
 static DX_DIRECT_METHOD_RESPONSE_CODE hvac_off_handler(JSON_Value *json, DX_DIRECT_METHOD_BINDING *directMethodBinding, char **responseMsg);
 static DX_DIRECT_METHOD_RESPONSE_CODE hvac_on_handler(JSON_Value *json, DX_DIRECT_METHOD_BINDING *directMethodBinding, char **responseMsg);
 static DX_DIRECT_METHOD_RESPONSE_CODE restart_hvac_handler(JSON_Value *json, DX_DIRECT_METHOD_BINDING *directMethodBinding, char **responseMsg);
-static void dt_set_target_temperature_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding);
 static void dt_set_panel_message_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding);
 static void dt_set_publish_rate_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding);
+static void dt_set_target_temperature_handler(DX_DEVICE_TWIN_BINDING *deviceTwinBinding);
 static void intercore_environment_receive_msg_handler(void *data_block, ssize_t message_length);
 static void publish_telemetry_handler(EventLoopTimer *eventLoopTimer);
 static void read_telemetry_handler(EventLoopTimer *eventLoopTimer);
+static void watchdog_handler(EventLoopTimer *eventLoopTimer);
 
 
 // Number of bytes to allocate for the JSON telemetry message for IoT Hub/Central
@@ -59,6 +60,9 @@ typedef struct {
 
 static ENVIRONMENT env;
 
+const struct itimerspec watchdogInterval = {{ 60, 0 },{ 60, 0 }};
+timer_t watchdogTimer;
+
 #define Log_Debug(f_, ...) dx_Log_Debug((f_), ##__VA_ARGS__)
 static char Log_Debug_Time_buffer[128];
 
@@ -75,7 +79,7 @@ static DX_MESSAGE_PROPERTY *messageProperties[] = {&(DX_MESSAGE_PROPERTY){.key =
 /// https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-messages-d2c
 /// </summary>
 static DX_MESSAGE_PROPERTY *sensorErrorProperties[] = {&(DX_MESSAGE_PROPERTY){.key = "appid", .value = "hvac"},
-                                                       &(DX_MESSAGE_PROPERTY){.key = "type", .value = "SensorError"},
+                                                       &(DX_MESSAGE_PROPERTY){.key = "type", .value = "sensor_error"},
                                                        &(DX_MESSAGE_PROPERTY){.key = "schema", .value = "1"}};
 
 /// <summary>
@@ -105,6 +109,7 @@ static DX_GPIO_BINDING gpio_network_led = {.pin = NETWORK_CONNECTED_LED, .name =
 
 static DX_TIMER_BINDING tmr_read_telemetry = {.period = {4, 0}, .name = "tmr_read_telemetry", .handler = read_telemetry_handler};
 static DX_TIMER_BINDING tmr_publish_telemetry = {.period = {5, 0}, .name = "tmr_publish_telemetry", .handler = publish_telemetry_handler};
+static DX_TIMER_BINDING tmr_watchdog = {.period = {30, 0}, .name = "tmr_publish_telemetry", .handler = watchdog_handler};
 // clang-format on
 
 // All bindings referenced in the following binding sets are initialised in the InitPeripheralsAndHandlers function
@@ -114,7 +119,7 @@ DX_DEVICE_TWIN_BINDING *device_twin_bindings[] = {&dt_utc_startup,    &dt_hvac_s
 
 DX_DIRECT_METHOD_BINDING *direct_method_binding_sets[] = {&dm_hvac_on, &dm_hvac_off, &dm_restart_hvac};
 DX_GPIO_BINDING *gpio_binding_sets[] = {&gpio_network_led, &gpio_operating_led};
-DX_TIMER_BINDING *timer_binding_sets[] = {&tmr_publish_telemetry, &tmr_read_telemetry};
+DX_TIMER_BINDING *timer_binding_sets[] = {&tmr_publish_telemetry, &tmr_read_telemetry, &tmr_watchdog};
 
 
 INTERCORE_BLOCK intercore_block;
