@@ -10,12 +10,9 @@
 [submodule "Lab_03_remote_operations/AzureSphereDevX"]
 	path = Lab_03_remote_operations/AzureSphereDevX
 	url = https://github.com/gloveboxes/AzureSphereDevX.git
-[submodule "Lab_06_production/AzureSphereDevX"]
-	path = Lab_06_production/AzureSphereDevX
-	url = https://github.com/gloveboxes/AzureSphereDevX.git
-[submodule "Lab_07_hvac_solution/AzureSphereDevX"]
-	path = Lab_07_hvac_solution/AzureSphereDevX
-	url = https://github.com/gloveboxes/AzureSphereDevX.git
 [submodule "Lab_04_real_time_enviromon_bm/mt3620_m4_software"]
 	path = Lab_04_real_time_enviromon_bm/mt3620_m4_software
 	url = https://github.com/MediaTek-Labs/mt3620_m4_software.git
+[submodule "Lab_06_production/AzureSphereDevX"]
+	path = Lab_06_production/AzureSphereDevX
+	url = https://github.com/gloveboxes/AzureSphereDevX.git
