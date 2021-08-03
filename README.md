@@ -37,9 +37,8 @@ We cover the following IoT concepts in this scenario:
 5. Predictive Maintenance with AI
     * Predict HVAC compressor issues with an Edge Impulse AI model
 6. Production
-    * Reporting sw version, startup utc
-    * A watchdog to check the heath of HVAC system and restart if needed.
-    * How to package and update your applications in production
-    * How to pick the best time to update your application with Deferred Updates
-7. End to end - bringing it altogether
-    * Bring all the pieces together for a comprehensive solution
+    * Startup reporting - sw version, startup time
+    * Remote HVAC restart
+    * Application level watchdog restart if needed.
+    * Packaging your application for over the air updates
+    * Picking the best time to update your application with Deferred Updates
