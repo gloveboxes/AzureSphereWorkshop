@@ -16,3 +16,9 @@
 [submodule "Lab_06_production/AzureSphereDevX"]
 	path = Lab_06_production/AzureSphereDevX
 	url = https://github.com/gloveboxes/AzureSphereDevX.git
+[submodule "Lab_01_publish_telemetry_avnet/AzureSphereDevX"]
+	path = Lab_01_publish_telemetry_avnet/AzureSphereDevX
+	url = https://github.com/gloveboxes/AzureSphereDevX.git
+[submodule "Lab_01_publish_telemetry_avnet/Drivers"]
+	path = Lab_01_publish_telemetry_avnet/Drivers
+	url = https://github.com/gloveboxes/AzureSphereDrivers.git

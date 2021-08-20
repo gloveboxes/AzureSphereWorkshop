@@ -1,0 +1,21 @@
+{
+  "SchemaVersion": 1,
+  "Name": "hvac_solution",
+  "ComponentId": "25025d2c-66da-4448-bae1-ac26fcdd3627",
+  "EntryPoint": "/bin/app",
+  "CmdArgs": [ "--ScopeID", "0ne000F25AF" ],
+  "Capabilities": {
+    "Gpio": [ "$NETWORK_CONNECTED_LED", "$LED2" ],
+    "I2cMaster": [ "$I2cMaster2" ],
+    "PowerControls": [ "ForceReboot" ],
+    "SystemEventNotifications": true,
+    "SoftwareUpdateDeferral": true,
+    "AllowedConnections": [
+      "global.azure-devices-provisioning.net",
+      "iot-hub-azure-sphere.azure-devices.net"
+    ],
+    "DeviceAuthentication": "9d7e79eb-e021-43ce-9f2b-fa944b447494",
+    "AllowedApplicationConnections": [ "6583cf17-d321-4d72-8283-0b7c5b56442b" ]
+  },
+  "ApplicationType": "Default"
+}
