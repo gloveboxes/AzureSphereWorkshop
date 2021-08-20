@@ -40,7 +40,6 @@
  * Implementation
  ****************************************************************************************/
 
-
 // Validate sensor readings and publish HVAC telemetry
 static void publish_telemetry_handler(EventLoopTimer *eventLoopTimer)
 {
@@ -55,29 +54,29 @@ static void publish_telemetry_handler(EventLoopTimer *eventLoopTimer)
         return;
     }
 
-    // Validate sensor data to check within expected range
-    if (!IN_RANGE(env.latest.temperature, -20, 50) && !IN_RANGE(env.latest.pressure, 800, 1200) && !IN_RANGE(env.latest.humidity, 0, 100)) {
-        Log_Debug("ERROR: Invalid data from sensor.\n");
-    } else {
-        // Serialize telemetry as JSON
-        // clang-format off
-        if (dx_jsonSerialize(msgBuffer, sizeof(msgBuffer), 6,                             
-            DX_JSON_INT, "MsgId", msgId++, 
-            DX_JSON_INT, "Temperature", env.latest.temperature, 
-            DX_JSON_INT, "Pressure", env.latest.pressure,
-            DX_JSON_INT, "Humidity", env.latest.humidity,
-            DX_JSON_INT, "PeakUserMemoryKiB", (int)Applications_GetPeakUserModeMemoryUsageInKB(),
-            DX_JSON_INT, "TotalMemoryKiB", (int)Applications_GetTotalMemoryUsageInKB()))
-        // clang-format on
-        {
-            Log_Debug("%s\n", msgBuffer);
+    // Serialize telemetry as JSON
+    // clang-format off
+    if (!dx_jsonSerialize(msgBuffer, sizeof(msgBuffer), 6,                             
+        DX_JSON_INT, "MsgId", msgId++, 
+        DX_JSON_INT, "Temperature", env.latest.temperature, 
+        DX_JSON_INT, "Pressure", env.latest.pressure,
+        DX_JSON_INT, "Humidity", env.latest.humidity,
+        DX_JSON_INT, "PeakUserMemoryKiB", (int)Applications_GetPeakUserModeMemoryUsageInKB(),
+        DX_JSON_INT, "TotalMemoryKiB", (int)Applications_GetTotalMemoryUsageInKB()))
+    // clang-format on
+    {
+        Log_Debug("JSON Serialization failed: Buffer too small\n");
+        dx_terminate(APP_ExitCode_Telemetry_Buffer_Too_Small);
+    }
 
-            // Publish telemetry message to IoT Hub/Central
-            dx_azurePublish(msgBuffer, strlen(msgBuffer), messageProperties, NELEMS(messageProperties), &contentProperties);
-        } else {
-            Log_Debug("JSON Serialization failed: Buffer too small\n");
-            dx_terminate(APP_ExitCode_Telemetry_Buffer_Too_Small);
-        }
+    // Validate sensor data to check within expected range
+    if (!IN_RANGE(env.latest.temperature, -20, 50) || !IN_RANGE(env.latest.pressure, 800, 1200) || !IN_RANGE(env.latest.humidity, 0, 100)) {
+        Log_Debug("ERROR: Invalid sensor data: %s\n", msgBuffer);
+    } else {
+        Log_Debug("%s\n", msgBuffer);
+
+        // Publish telemetry message to IoT Hub/Central
+        dx_azurePublish(msgBuffer, strlen(msgBuffer), messageProperties, NELEMS(messageProperties), &contentProperties);
     }
 }
 
@@ -90,11 +89,12 @@ static void read_telemetry_handler(EventLoopTimer *eventLoopTimer)
 
     env.latest.temperature = (int)avnet_get_temperature_lps22h();
     env.latest.pressure = (int)avnet_get_pressure();
-    env.latest.humidity = 20 + (rand() % 60);
+    env.latest.humidity = 20 + (rand() % 90);
     env.updated = true;
 }
 
-static void button_a_handler(EventLoopTimer* eventLoopTimer) {
+static void button_a_handler(EventLoopTimer *eventLoopTimer)
+{
     static GPIO_Value_Type buttonAState;
 
     if (ConsumeEventLoopTimerEvent(eventLoopTimer) != 0) {

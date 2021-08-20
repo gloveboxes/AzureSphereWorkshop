@@ -52,7 +52,7 @@ typedef struct {
 static ENVIRONMENT env;
 
 #define Log_Debug(f_, ...) dx_Log_Debug((f_), ##__VA_ARGS__)
-static char Log_Debug_Time_buffer[128];
+static char Log_Debug_Time_buffer[256];
 
 /// <summary>
 /// Publish sensor telemetry using the following properties for efficient IoT Hub routing
