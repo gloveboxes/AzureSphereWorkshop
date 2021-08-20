@@ -24,13 +24,13 @@ azsphere_configure_tools(TOOLS_REVISION "21.07")
 azsphere_configure_api(TARGET_API_SET "10")
 
 add_subdirectory("AzureSphereDevX" out)
-add_subdirectory("./Drivers/AVNET_STARTER_KIT/HighLevel" drivers)
+add_subdirectory("Drivers/AVNET/HL" drivers)
 
 # Create executable
 add_executable (${PROJECT_NAME} main.c)
 target_link_libraries (${PROJECT_NAME} applibs pthread gcc_s c azure_sphere_devx avnet_drivers)
 target_include_directories(${PROJECT_NAME} PUBLIC AzureSphereDevX/include )
-target_include_directories(${PROJECT_NAME} PUBLIC ./Drivers/AVNET_STARTER_KIT/HighLevel)
+target_include_directories(${PROJECT_NAME} PUBLIC Drivers/AVNET/HL)
 target_include_directories(${PROJECT_NAME} PUBLIC ../IntercoreContract)
 
 

@@ -26,6 +26,7 @@
 // Forward declarations
 static void publish_telemetry_handler(EventLoopTimer *eventLoopTimer);
 static void read_telemetry_handler(EventLoopTimer *eventLoopTimer);
+static void button_a_handler(EventLoopTimer *eventLoopTimer);
 
 
 // Number of bytes to allocate for the JSON telemetry message for IoT Hub/Central
@@ -68,12 +69,14 @@ static DX_MESSAGE_CONTENT_PROPERTIES contentProperties = {.contentEncoding = "ut
 
 static DX_GPIO_BINDING gpio_operating_led = {.pin = LED2, .name = "gpio_operating_led", .direction = DX_OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true};
 static DX_GPIO_BINDING gpio_network_led = {.pin = NETWORK_CONNECTED_LED, .name = "network_led", .direction = DX_OUTPUT, .initialState = GPIO_Value_Low, .invertPin = true};
+static DX_GPIO_BINDING gpio_button_a = {.pin = BUTTON_A, .name = "button a", .direction = DX_INPUT };
 
 static DX_TIMER_BINDING tmr_read_telemetry = {.period = {4, 0}, .name = "tmr_read_telemetry", .handler = read_telemetry_handler};
 static DX_TIMER_BINDING tmr_publish_telemetry = {.period = {5, 0}, .name = "tmr_publish_telemetry", .handler = publish_telemetry_handler};
+static DX_TIMER_BINDING tmr_button_a_handler = {.period = {0, 100000000}, .name = "tmr_publish_telemetry", .handler = button_a_handler};
 // clang-format on
 
-DX_GPIO_BINDING *gpio_binding_sets[] = {&gpio_network_led, &gpio_operating_led};
-DX_TIMER_BINDING *timer_binding_sets[] = {&tmr_publish_telemetry, &tmr_read_telemetry};
+DX_GPIO_BINDING *gpio_binding_sets[] = {&gpio_network_led, &gpio_operating_led, &gpio_button_a};
+DX_TIMER_BINDING *timer_binding_sets[] = {&tmr_publish_telemetry, &tmr_read_telemetry, &tmr_button_a_handler};
 
 // clang-format on

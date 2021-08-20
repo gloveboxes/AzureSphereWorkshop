@@ -34,7 +34,7 @@
 #include "hw/azure_sphere_learning_path.h" // Hardware definition
 #include "main.h"
 #include "app_exit_codes.h"
-#include "imu_temp_pressure.h"
+#include "./Drivers/AVNET/HL/imu_temp_pressure.h"
 
 /****************************************************************************************
  * Implementation
@@ -88,10 +88,26 @@ static void read_telemetry_handler(EventLoopTimer *eventLoopTimer)
         return;
     }
 
-    env.latest.temperature = (int)lp_get_temperature_lps22h();
-    env.latest.pressure = (int)lp_get_pressure();
+    env.latest.temperature = (int)avnet_get_temperature_lps22h();
+    env.latest.pressure = (int)avnet_get_pressure();
     env.latest.humidity = 20 + (rand() % 60);
     env.updated = true;
+}
+
+static void button_a_handler(EventLoopTimer* eventLoopTimer) {
+    static GPIO_Value_Type buttonAState;
+
+    if (ConsumeEventLoopTimerEvent(eventLoopTimer) != 0) {
+        dx_terminate(DX_ExitCode_ConsumeEventLoopTimeEvent);
+        return;
+    }
+
+    if (dx_gpioStateGet(&gpio_button_a, &buttonAState)) {
+        env.latest.temperature = (int)avnet_get_temperature_lps22h();
+        env.latest.pressure = (int)avnet_get_pressure();
+        env.latest.humidity = 20 + (rand() % 60);
+        env.updated = true;
+    }
 }
 
 /// <summary>
@@ -103,7 +119,7 @@ static void InitPeripheralsAndHandlers(void)
     dx_azureConnect(&dx_config, NETWORK_INTERFACE, IOT_PLUG_AND_PLAY_MODEL_ID);
     dx_gpioSetOpen(gpio_binding_sets, NELEMS(gpio_binding_sets));
     dx_timerSetStart(timer_binding_sets, NELEMS(timer_binding_sets));
-    lp_imu_initialize();
+    avnet_imu_initialize();
 }
 
 /// <summary>
