@@ -4,7 +4,7 @@
 
 bool onboard_sensors_init(void) {
     srand((unsigned int)time(NULL)); // seed the random number generator for fake telemetry
-    avnet_imu_initialize();
+    avnet_imu_initialize(I2cMaster2);
 
     // lp_calibrate_angular_rate(); // call if using gyro
     // lp_OpenADC();

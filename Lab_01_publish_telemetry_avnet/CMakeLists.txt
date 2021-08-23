@@ -33,12 +33,11 @@ endif(AVNET OR AVNET_REV_2)
 add_executable (${PROJECT_NAME} main.c onboard_sensors.c)
 target_link_libraries (${PROJECT_NAME} applibs pthread gcc_s c azure_sphere_devx)
 target_include_directories(${PROJECT_NAME} PUBLIC AzureSphereDevX/include )
-target_include_directories(${PROJECT_NAME} PUBLIC Drivers/AVNET/HL)
 target_include_directories(${PROJECT_NAME} PUBLIC ../IntercoreContract)
 
 if(AVNET OR AVNET_REV_2)
     target_link_libraries (${PROJECT_NAME} avnet_drivers)
-    target_link_libraries (${PROJECT_NAME} avnet_drivers)
+    target_include_directories(${PROJECT_NAME} PUBLIC Drivers/AVNET/HL)
 endif(AVNET OR AVNET_REV_2)
 
 
