@@ -34,7 +34,7 @@
 #include "hw/azure_sphere_learning_path.h" // Hardware definition
 #include "main.h"
 #include "app_exit_codes.h"
-#include "./Drivers/AVNET/HL/imu_temp_pressure.h"
+
 
 /****************************************************************************************
  * Implementation
@@ -87,9 +87,11 @@ static void read_telemetry_handler(EventLoopTimer *eventLoopTimer)
         return;
     }
 
-    env.latest.temperature = (int)avnet_get_temperature_lps22h();
-    env.latest.pressure = (int)avnet_get_pressure();
-    env.latest.humidity = 20 + (rand() % 90);
+    onboard_sensors_read(&telemetry);
+
+    env.latest.temperature = telemetry.temperature;
+    env.latest.pressure = telemetry.pressure;
+    env.latest.humidity = telemetry.humidity;
     env.updated = true;
 }
 
@@ -103,9 +105,12 @@ static void button_a_handler(EventLoopTimer *eventLoopTimer)
     }
 
     if (dx_gpioStateGet(&gpio_button_a, &buttonAState)) {
-        env.latest.temperature = (int)avnet_get_temperature_lps22h();
-        env.latest.pressure = (int)avnet_get_pressure();
-        env.latest.humidity = 20 + (rand() % 60);
+
+        onboard_sensors_read(&telemetry);
+
+        env.latest.temperature = telemetry.temperature;
+        env.latest.pressure = telemetry.pressure;
+        env.latest.humidity = telemetry.humidity;
         env.updated = true;
     }
 }
@@ -119,7 +124,7 @@ static void InitPeripheralsAndHandlers(void)
     dx_azureConnect(&dx_config, NETWORK_INTERFACE, IOT_PLUG_AND_PLAY_MODEL_ID);
     dx_gpioSetOpen(gpio_binding_sets, NELEMS(gpio_binding_sets));
     dx_timerSetStart(timer_binding_sets, NELEMS(timer_binding_sets));
-    avnet_imu_initialize();
+    onboard_sensors_init();
 }
 
 /// <summary>
@@ -130,6 +135,7 @@ static void ClosePeripheralsAndHandlers(void)
     dx_timerSetStop(timer_binding_sets, NELEMS(timer_binding_sets));
     dx_gpioSetClose(gpio_binding_sets, NELEMS(gpio_binding_sets));
     dx_timerEventLoopStop();
+    onboard_sensors_close();
 }
 
 int main(int argc, char *argv[])

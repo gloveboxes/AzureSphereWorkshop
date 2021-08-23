@@ -15,6 +15,8 @@
 #include <applibs/log.h>
 #include <applibs/powermanagement.h>
 
+#include "onboard_sensors.h"
+
 // clang-format off
 // https://docs.microsoft.com/en-us/azure/iot-pnp/overview-iot-plug-and-play
 #define IOT_PLUG_AND_PLAY_MODEL_ID "dtmi:com:example:azuresphere:labmonitor;1"
@@ -50,6 +52,7 @@ typedef struct {
 } ENVIRONMENT;
 
 static ENVIRONMENT env;
+static ONBOARD_TELEMETRY telemetry;
 
 #define Log_Debug(f_, ...) dx_Log_Debug((f_), ##__VA_ARGS__)
 static char Log_Debug_Time_buffer[256];
@@ -73,7 +76,7 @@ static DX_GPIO_BINDING gpio_button_a = {.pin = BUTTON_A, .name = "button a", .di
 
 static DX_TIMER_BINDING tmr_read_telemetry = {.period = {4, 0}, .name = "tmr_read_telemetry", .handler = read_telemetry_handler};
 static DX_TIMER_BINDING tmr_publish_telemetry = {.period = {5, 0}, .name = "tmr_publish_telemetry", .handler = publish_telemetry_handler};
-static DX_TIMER_BINDING tmr_button_a_handler = {.period = {0, 100000000}, .name = "tmr_publish_telemetry", .handler = button_a_handler};
+static DX_TIMER_BINDING tmr_button_a_handler = {.period = {0, 100000000}, .name = "tmr_button_handler", .handler = button_a_handler};
 // clang-format on
 
 DX_GPIO_BINDING *gpio_binding_sets[] = {&gpio_network_led, &gpio_operating_led, &gpio_button_a};
