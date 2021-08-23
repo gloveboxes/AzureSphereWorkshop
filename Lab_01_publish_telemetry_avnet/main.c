@@ -31,10 +31,8 @@
  *
  ************************************************************************************************/
 
-#include "hw/azure_sphere_learning_path.h" // Hardware definition
+// include all required includes, definitions and declarations
 #include "main.h"
-#include "app_exit_codes.h"
-
 
 /****************************************************************************************
  * Implementation
@@ -115,6 +113,10 @@ static void button_a_handler(EventLoopTimer *eventLoopTimer)
     }
 }
 
+static void show_connected_state(bool connected) {
+    dx_gpioStateSet(&gpio_network_led, connected);
+}
+
 /// <summary>
 ///  Initialize peripherals, device twins, direct methods, timer_binding_sets.
 /// </summary>
@@ -122,6 +124,7 @@ static void InitPeripheralsAndHandlers(void)
 {
     dx_Log_Debug_Init(Log_Debug_Time_buffer, sizeof(Log_Debug_Time_buffer));
     dx_azureConnect(&dx_config, NETWORK_INTERFACE, IOT_PLUG_AND_PLAY_MODEL_ID);
+    dx_azureRegisterConnectionChangedNotification(show_connected_state);
     dx_gpioSetOpen(gpio_binding_sets, NELEMS(gpio_binding_sets));
     dx_timerSetStart(timer_binding_sets, NELEMS(timer_binding_sets));
     onboard_sensors_init();
