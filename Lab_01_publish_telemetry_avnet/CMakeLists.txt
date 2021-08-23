@@ -25,9 +25,9 @@ azsphere_configure_api(TARGET_API_SET "10")
 
 add_subdirectory("AzureSphereDevX" out)
 
-if(AVNET)
+if(AVNET OR AVNET_REV_2)
     add_subdirectory("Drivers/AVNET/HL" drivers)
-endif(AVNET)
+endif(AVNET OR AVNET_REV_2)
 
 # Create executable
 add_executable (${PROJECT_NAME} main.c onboard_sensors.c)
@@ -36,10 +36,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC AzureSphereDevX/include )
 target_include_directories(${PROJECT_NAME} PUBLIC Drivers/AVNET/HL)
 target_include_directories(${PROJECT_NAME} PUBLIC ../IntercoreContract)
 
-if(AVNET)
+if(AVNET OR AVNET_REV_2)
     target_link_libraries (${PROJECT_NAME} avnet_drivers)
     target_link_libraries (${PROJECT_NAME} avnet_drivers)
-endif(AVNET)
+endif(AVNET OR AVNET_REV_2)
 
 
 if(AVNET)
